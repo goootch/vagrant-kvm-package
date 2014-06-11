@@ -70,7 +70,7 @@ IMG=$TMPDIR/$IMG_BASENAME
 
 cd $TMPDIR
 
-# blocks until guest is manually shutdown
+# blocks until guest is manually shutdown, therefore &
 virt-install --import \
     --name $NAME \
     --ram $RAM --vcpus=$VCPUS\
@@ -79,7 +79,7 @@ virt-install --import \
 
 PID=$!
 
-# wait for domain to be present in libvirt
+# wait for domain to be started
 sleep 10
 
 virsh dumpxml $NAME > box.xml
