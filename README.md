@@ -1,6 +1,6 @@
 # Vagrant KVM Package
 
-Create [kvm-vagrant](https://github.com/adrahon/vagrant-kvm) base boxes from kvm images
+Create [kvm-vagrant](https://github.com/adrahon/vagrant-kvm) base boxes from kvm images. I highly recommend creating the kvm image with [packer](http://packer.io). There are some templates available for creating qemu images at [packer-qemu-templates](https://github.com/jakobadam/packer-qemu-templates)
 
 ## Requirements
 
