@@ -13,36 +13,6 @@ function usage() {
     echo "It uses virt-install and virsh to do so"
 }
 
-function vir_exists(){
-    local name="${1}"
-    virsh list --all | grep $name &> /dev/null
-}
-
-function vir_undefine(){
-    local name="${1}"
-    virsh undefine $name
-}
-
-function vir_shutdown(){
-    local name="${1}"
-    virsh shutdown $name
-    while vir_running $NAME; do
-        echo -n "."
-        sleep 1
-    done
-}
-
-function vir_running(){
-    local name="${1}"
-    virsh list | grep running | grep $name &> /dev/null
-}
-
-function vir_delete(){
-    local name="${1}"
-    vir_shutdown $name
-    vir_undefine $name
-}
-
 if [ -z "$2" ]; then
     usage
     exit 1
@@ -55,34 +25,31 @@ IMG=$(readlink -e $2)
 RAM=2048
 VCPUS=2
 
-vir_exists $NAME && error "Domain $NAME already exists."
-
 IMG_BASENAME=$(basename $IMG)
 IMG_DIR=$(dirname $IMG)
 
-TMPDIR=$IMG_DIR/_tmp_package
-mkdir -p $TMPDIR 
+# Create stuff in tmp dir
+TMP_DIR=$IMG_DIR/_tmp_package
+mkdir -p $TMP_DIR
 
-trap "mv $TMPDIR/$IMG_BASENAME $IMG_DIR; rm -rf $TMPDIR" EXIT
+# We move the image to the tempdir
+# ensure that it's moved back again
+trap "mv $TMP_DIR/$IMG_BASENAME $IMG_DIR; rm -rf $TMP_DIR" EXIT
 
-mv $IMG $TMPDIR
-IMG=$TMPDIR/$IMG_BASENAME
+mv $IMG $TMP_DIR
+IMG=$TMP_DIR/$IMG_BASENAME
 
-cd $TMPDIR
+cd $TMP_DIR
 
-# blocks until guest is manually shutdown, therefore &
-virt-install --import \
+# generate box.xml
+virt-install \
+    --print-xml \
+    --dry-run \
+    --import \
     --name $NAME \
     --ram $RAM --vcpus=$VCPUS\
     --disk path="$IMG",bus=virtio,format=qcow2\
-    -w network=default,model=virtio &
-
-PID=$!
-
-# wait for domain to be started
-sleep 10
-
-virsh dumpxml $NAME > box.xml
+    -w network=default,model=virtio > box.xml
 
 # extract the mac for the Vagrantfile
 MAC=$(cat box.xml | grep 'mac address' | cut -d\' -f2 | tr -d :)
@@ -103,14 +70,7 @@ Vagrant.configure("2") do |config|
 end
 EOF
 
-vir_running $NAME && vir_shutdown $NAME
-
-# wait for virt-install shutdown
-wait $PID
-
 tar cvzf $NAME.box --totals ./metadata.json ./Vagrantfile ./box.xml ./$IMG_BASENAME
 mv $NAME.box $IMG_DIR
-
-vir_undefine $NAME
 
 echo "$IMG_DIR/$NAME.box created"
