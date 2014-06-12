@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-function error() {
+error() {
     local msg="${1}"
     echo "${msg}"
     exit 1
 }
 
-function usage() {
+usage() {
     echo "Usage: ${0} NAME IMAGE"
     echo
     echo "Package a kvm qcow2 image into a kvm vagrant reusable box"
@@ -18,13 +18,12 @@ if [ -z "$2" ]; then
     exit 1
 fi
 
-NAME="$1"
-IMG=$(readlink -e $2)
-
 # defaults for virtual server
+NAME="$1"
 RAM=2048
 VCPUS=2
 
+IMG=$(readlink -e $2)
 IMG_BASENAME=$(basename $IMG)
 IMG_DIR=$(dirname $IMG)
 
@@ -34,6 +33,7 @@ mkdir -p $TMP_DIR
 
 # We move the image to the tempdir
 # ensure that it's moved back again
+# and the tmp dir removed
 trap "mv $TMP_DIR/$IMG_BASENAME $IMG_DIR; rm -rf $TMP_DIR" EXIT
 
 mv $IMG $TMP_DIR
@@ -42,13 +42,14 @@ IMG=$TMP_DIR/$IMG_BASENAME
 cd $TMP_DIR
 
 # generate box.xml
+
 virt-install \
     --print-xml \
     --dry-run \
     --import \
     --name $NAME \
-    --ram $RAM --vcpus=$VCPUS\
-    --disk path="$IMG",bus=virtio,format=qcow2\
+    --ram $RAM --vcpus=$VCPUS \
+    --disk path="$IMG",bus=virtio,format=qcow2 \
     -w network=default,model=virtio > box.xml
 
 # extract the mac for the Vagrantfile
@@ -56,7 +57,13 @@ MAC=$(cat box.xml | grep 'mac address' | cut -d\' -f2 | tr -d :)
 IMG_ABS_PATH=$(cat box.xml | grep 'source file' | cut -d\' -f2)
 
 # replace the absolute image path
-sed -i s#$IMG_ABS_PATH#$IMG_BASENAME# box.xml
+sed -i "s#$IMG_ABS_PATH#$IMG_BASENAME#" box.xml
+
+# Hmm. When not starting the vm (--print-xml) the memory attribute in
+# the XML is missing the unit, which causes an exception in vagrant-kvm
+
+# add the memory unit
+sed -i "s/<memory>/<memory unit='KiB'>/" box.xml
 
 cat > metadata.json <<EOF
 {
