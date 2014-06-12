@@ -9,8 +9,8 @@ function error() {
 function usage() {
     echo "Usage: ${0} NAME IMAGE"
     echo
-    echo "This packages a kvm qcow2 image into a kvm vagrant reusable box"
-    echo "It uses virt-install and virsh to do so"
+    echo "Package a kvm qcow2 image into a kvm vagrant reusable box"
+    echo "It uses virt-install to do so"
 }
 
 if [ -z "$2" ]; then
